@@ -45,7 +45,6 @@ import me.gm.cleaner.util.DividerDecoration
 import me.gm.cleaner.core.common.RuntimeFileUtils
 import me.gm.cleaner.util.PermissionUtils
 import me.gm.cleaner.core.common.RuntimeSystemProperties
-import me.gm.cleaner.util.fitsSystemWindowInsets
 import me.gm.cleaner.util.fixEdgeEffect
 import me.gm.cleaner.util.listFormat
 import me.gm.cleaner.util.overScrollIfContentScrollsPersistent
@@ -88,7 +87,6 @@ class StorageRedirectFragment : BaseFragment() {
             setDivider(resources.getDrawable(R.drawable.list_divider_material, null))
             setAllowDividerAfterLastItem(false)
         })
-        list.fitsSystemWindowInsets()
 
         val hintAdapter = HintCategoryAdapter()
         viewModel.hintsLiveData.observe(viewLifecycleOwner) { hints ->

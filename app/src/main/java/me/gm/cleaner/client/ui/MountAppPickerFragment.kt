@@ -68,7 +68,6 @@ class MountAppPickerFragment : BaseFragment() {
         list.setHasFixedSize(true)
         list.fixEdgeEffect()
         list.overScrollIfContentScrollsPersistent()
-        list.fitsSystemWindowInsets(savedInstanceState == null)
         binding.listContainer.setOnRefreshListener {
             viewModel.loadApps()
         }
