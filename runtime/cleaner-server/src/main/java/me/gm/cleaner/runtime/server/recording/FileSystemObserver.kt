@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.database.Cursor
 import android.util.Log
 import androidx.room.Room
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import api.SystemService
 import me.gm.cleaner.core.common.RuntimeFileUtils
 import me.gm.cleaner.runtime.server.VfsRuntimePolicy
@@ -80,6 +82,9 @@ class FileSystemObserver(private val server: CleanerServer) : BaseObserver() {
                 FileSystemRecordDatabase::class.java,
                 FileSystemRecordContract.DATABASE_NAME
             )
+            .addMigrations(MIGRATION_2_3)
+            // 已发布旧版的 Room 版本是 2；回退安装旧版时，fallback 会清空记录库而不是崩溃。
+            // 记录库是诊断/审计数据，接受该回退边界；规则与设置不在此库。
             .fallbackToDestructiveMigration()
             .build()
         dao = database.fileSystemRecordDao()
@@ -181,6 +186,25 @@ class FileSystemObserver(private val server: CleanerServer) : BaseObserver() {
 
     companion object {
         const val DATABASE_NAME: String = FileSystemRecordContract.DATABASE_NAME
+
+        /**
+         * 2 → 3：只增加查询/upsert 所需索引，不改表结构和数据。
+         *
+         * 索引名必须与 Room 由 @Entity(indices=...) 生成的名称一致，否则迁移后
+         * Room 的 schema 校验会失败。
+         */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_FileSystemRecord_time_millis` " +
+                        "ON `FileSystemRecord` (`time_millis`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_FileSystemRecord_package_name_path_flags` " +
+                        "ON `FileSystemRecord` (`package_name`, `path`, `flags`)"
+                )
+            }
+        }
     }
 }
 

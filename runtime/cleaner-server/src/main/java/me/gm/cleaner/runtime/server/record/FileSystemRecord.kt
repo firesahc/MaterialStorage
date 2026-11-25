@@ -6,13 +6,19 @@ import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Delete
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.RoomDatabase
 import androidx.room.Transaction
 
-@Entity
+@Entity(
+    indices = [
+        Index(value = ["time_millis"]),
+        Index(value = ["package_name", "path", "flags"]),
+    ]
+)
 data class FileSystemRecord(
     @PrimaryKey(autoGenerate = true) val id: Int,
     @ColumnInfo(name = "time_millis") val timeMillis: Long,
@@ -82,7 +88,7 @@ interface FileSystemRecordDao {
     fun deleteAll(ids: IntArray)
 }
 
-@Database(entities = [FileSystemRecord::class], version = 2, exportSchema = false)
+@Database(entities = [FileSystemRecord::class], version = 3, exportSchema = false)
 abstract class FileSystemRecordDatabase : RoomDatabase() {
     abstract fun fileSystemRecordDao(): FileSystemRecordDao
 }
