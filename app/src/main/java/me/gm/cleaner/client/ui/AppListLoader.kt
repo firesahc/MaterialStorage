@@ -1,7 +1,9 @@
 package me.gm.cleaner.client.ui
 
 import android.content.Context
+import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import android.os.SystemClock
 import android.util.Log
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -11,10 +13,8 @@ import me.gm.cleaner.BuildConfig
 import me.gm.cleaner.client.CleanerClient
 import me.gm.cleaner.dao.AppLabelCache
 import me.gm.cleaner.core.config.ConfiguredPolicyStoreProvider
-import me.gm.cleaner.core.config.getPackageReadOnly
-import me.gm.cleaner.core.config.getPackageSrCount
-import me.gm.cleaner.core.config.readOnlyPackages
-import me.gm.cleaner.core.config.srPackages
+import me.gm.cleaner.core.config.PolicyRuleIndex
+import me.gm.cleaner.core.config.policyRuleIndex
 import me.gm.cleaner.model.PackageStatus
 
 /** AppListLoader.load() 的结果：isFullList=false 表示服务端不可用时的本地降级结果。 */
@@ -28,34 +28,108 @@ class AppListLoader(
     private val context: Context,
 ) {
 
-    suspend fun load(): AppListLoadResult = withContext(defaultDispatcher) {
-        if (BuildConfig.DEBUG) Log.i("CleanerTest", "AppListLoader.load: start loading packages")
-        val installedPackages = CleanerClient.getInstalledPackagesOrNull(PackageManager.GET_PERMISSIONS)
-        if (installedPackages == null) {
-            if (BuildConfig.DEBUG) Log.i("CleanerTest", "AppListLoader.load: service unavailable or RPC failed, fallback")
-            return@withContext AppListLoadResult(loadLocalFallback(), isFullList = false)
+    suspend fun load(preloadIcons: Boolean = true): AppListLoadResult =
+        withContext(defaultDispatcher) {
+            val t0 = SystemClock.elapsedRealtime()
+            if (BuildConfig.DEBUG) Log.i("CleanerTest", "AppListLoader.load: start loading packages")
+            val installedPackages = CleanerClient.getInstalledPackagesOrNull(PackageManager.GET_PERMISSIONS)
+            val t1 = SystemClock.elapsedRealtime()
+            if (installedPackages == null) {
+                if (BuildConfig.DEBUG) Log.i("CleanerTest", "AppListLoader.load: service unavailable or RPC failed, fallback")
+                val fallback = loadLocalFallback()
+                val t2 = SystemClock.elapsedRealtime()
+                logTiming(fallback.size, false, t1 - t0, 0L, 0L, t2 - t1, 0L)
+                return@withContext AppListLoadResult(fallback, isFullList = false)
+            }
+            if (installedPackages.isNotEmpty()) {
+                AppLabelCache.updatePackageLabelCacheInBulk(installedPackages, true)
+            } else if (BuildConfig.DEBUG) {
+                Log.w("CleanerTest", "AppListLoader.load: server returned empty installed list, keep previous label cache")
+            }
+            val t2 = SystemClock.elapsedRealtime()
+            val srPackageStatus = CleanerClient.getSrPackagesStatusOrNull(PackageStatus.GET_FROM_ALL_PROCESS)
+            val t3 = SystemClock.elapsedRealtime()
+            if (BuildConfig.DEBUG) Log.i("CleanerTest", "AppListLoader.load: srPackageStatus size=${srPackageStatus?.size}")
+            // 服务端映射就绪且查无记录等于真无，未就绪或链路失败一律按未知处理，不混用空表示两种含义。
+            val statusUnknown = srPackageStatus == null
+            // 一次 readSnapshot 建「包名 → 规则数」索引。逐包调用 getPackageSrCount()/getPackageReadOnly()
+            // 会各自重新读文件 + 解析 JSON，几百个包就是几百次全量解析。
+            val counts = ConfiguredPolicyStoreProvider.instance.policyRuleIndex()
+            val result = installedPackages.map { pi ->
+                ensureActive()
+                val packageName = pi.packageName
+                AppListModel(
+                    pi,
+                    AppLabelCache.getPackageLabel(pi),
+                    counts.srCount(packageName),
+                    counts.readOnlyCount(packageName),
+                    parseMountState(if (statusUnknown) null else srPackageStatus?.get(packageName), statusUnknown)
+                )
+            }
+            val t4 = SystemClock.elapsedRealtime()
+            // 主界面只显示「已配置应用」，先把它们的图标预取进缓存，绑定阶段不再主线程逐条 loadIcon。
+            // 新建挂载选择页显示全部应用，预取已配置图标收益有限，由 ViewModel 关闭该开关。
+            if (preloadIcons) {
+                preloadConfiguredIcons(installedPackages, counts)
+            }
+            val t5 = SystemClock.elapsedRealtime()
+            if (BuildConfig.DEBUG) Log.i("CleanerTest", "AppListLoader.load: result=${result.size} apps")
+            logTiming(result.size, true, t1 - t0, t2 - t1, t3 - t2, t4 - t3, t5 - t4)
+            AppListLoadResult(result, isFullList = true)
         }
-        if (installedPackages.isNotEmpty()) {
-            AppLabelCache.updatePackageLabelCacheInBulk(installedPackages, true)
-        } else if (BuildConfig.DEBUG) {
-            Log.w("CleanerTest", "AppListLoader.load: server returned empty installed list, keep previous label cache")
+
+    /**
+     * 分阶段耗时（release 也打）。
+     *
+     * 列表"慢半拍"的候选原因有多个（安装列表 RPC、应用名解析、挂载状态 RPC、模型映射），
+     * 而 release 构建里 CleanerTest 不输出；每条加载一行，代价可忽略。
+     */
+    private fun logTiming(
+        size: Int,
+        full: Boolean,
+        getInstalled: Long,
+        labels: Long,
+        status: Long,
+        map: Long,
+        icons: Long,
+    ) {
+        Log.i(
+            TAG, "load: apps=" + size + " full=" + full +
+                " getInstalled=" + getInstalled + "ms" +
+                " labels=" + labels + "ms" +
+                " status=" + status + "ms" +
+                " map=" + map + "ms" +
+                " icons=" + icons + "ms" +
+                " total=" + (getInstalled + labels + status + map + icons) + "ms"
+        )
+    }
+
+    /**
+     * 后台预取「已配置应用」的图标。
+     *
+     * 主界面只显示配置过规则的包，通常十几个；其余项仍走绑定阶段懒加载。
+     * 预算耗尽后放弃剩余项，避免图标预取拖慢首屏。
+     */
+    private suspend fun preloadConfiguredIcons(
+        packages: List<PackageInfo>,
+        counts: PolicyRuleIndex,
+        budgetMs: Long = ICON_PRELOAD_BUDGET_MS,
+    ) {
+        val configured = packages.filter {
+            counts.srCount(it.packageName) > 0 || counts.readOnlyCount(it.packageName) > 0
         }
-        val srPackageStatus = CleanerClient.getSrPackagesStatusOrNull(PackageStatus.GET_FROM_ALL_PROCESS)
-        if (BuildConfig.DEBUG) Log.i("CleanerTest", "AppListLoader.load: srPackageStatus size=${srPackageStatus?.size}")
-        // 服务端映射就绪且查无记录等于真无，未就绪或链路失败一律按未知处理，不混用空表示两种含义。
-        val statusUnknown = srPackageStatus == null
-        val result = installedPackages.map { pi ->
-            ensureActive()
-            AppListModel(
-                pi,
-                AppLabelCache.getPackageLabel(pi),
-                ConfiguredPolicyStoreProvider.instance.getPackageSrCount(pi.packageName),
-                ConfiguredPolicyStoreProvider.instance.getPackageReadOnly(pi.packageName).size,
-                parseMountState(if (statusUnknown) null else srPackageStatus?.get(pi.packageName), statusUnknown)
-            )
+        if (configured.isEmpty()) {
+            return
         }
-        if (BuildConfig.DEBUG) Log.i("CleanerTest", "AppListLoader.load: result=${result.size} apps")
-        AppListLoadResult(result, isFullList = true)
+        withContext(Dispatchers.IO) {
+            val deadline = SystemClock.elapsedRealtime() + budgetMs
+            for (pi in configured) {
+                if (SystemClock.elapsedRealtime() >= deadline) {
+                    break
+                }
+                AppIconCache.preloadOne(context, pi)
+            }
+        }
     }
 
     /** 服务不可用时：用 PackageManager 获取客户端可见的全量应用，供主界面过滤规则包和新建挂载选择。 */
@@ -73,6 +147,7 @@ class AppListLoader(
         } else if (BuildConfig.DEBUG) {
             Log.w("CleanerTest", "AppListLoader.loadLocalFallback: keep previous label cache on empty/failed PM result")
         }
+        val counts = store.policyRuleIndex()
         return installedPackages.mapNotNull { pi ->
             val packageName = pi.packageName
             val label = AppLabelCache.getLabelIfCached(packageName)
@@ -81,8 +156,8 @@ class AppListLoader(
             AppListModel(
                 pi,
                 label,
-                store.getPackageSrCount(packageName),
-                store.getPackageReadOnly(packageName).size,
+                counts.srCount(packageName),
+                counts.readOnlyCount(packageName),
                 AppListModel.STATE_UNKNOWN,
             )
         }
@@ -136,16 +211,23 @@ class AppListLoader(
         }
     }
 
-    suspend fun updateRuleCount(old: List<AppListModel>): List<AppListModel> =
-        withContext(defaultDispatcher) {
-            val srPackageStatus = CleanerClient.getSrPackagesStatusOrNull(PackageStatus.GET_FROM_ALL_PROCESS)
-            old.map {
-                val packageName = it.packageInfo.packageName
-                it.copy(
-                    mountRulesCount = ConfiguredPolicyStoreProvider.instance.getPackageSrCount(packageName),
-                    readOnlyCount = ConfiguredPolicyStoreProvider.instance.getPackageReadOnly(packageName).size,
-                    mountState = if (srPackageStatus == null) AppListModel.STATE_UNKNOWN else parseMountState(srPackageStatus[packageName], false),
-                )
-            }
+    suspend fun updateRuleCount(
+        old: List<AppListModel>,
+        counts: PolicyRuleIndex,
+    ): List<AppListModel> = withContext(defaultDispatcher) {
+        val srPackageStatus = CleanerClient.getSrPackagesStatusOrNull(PackageStatus.GET_FROM_ALL_PROCESS)
+        old.map {
+            val packageName = it.packageInfo.packageName
+            it.copy(
+                mountRulesCount = counts.srCount(packageName),
+                readOnlyCount = counts.readOnlyCount(packageName),
+                mountState = if (srPackageStatus == null) AppListModel.STATE_UNKNOWN else parseMountState(srPackageStatus[packageName], false),
+            )
         }
+    }
+
+    private companion object {
+        const val TAG = "MC/AppList"
+        const val ICON_PRELOAD_BUDGET_MS = 400L
+    }
 }

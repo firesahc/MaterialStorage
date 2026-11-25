@@ -2,12 +2,12 @@ package me.gm.cleaner.util
 
 import java.text.Collator
 
-private val collator: Collator by lazy { Collator.getInstance() }
+private val collator: ThreadLocal<Collator> = ThreadLocal.withInitial { Collator.getInstance() }
 private val naturalSorter: NaturalSorter by lazy { NaturalSorter() }
 
 fun <T> collatorComparator(convert: (T) -> String): Comparator<T> {
     return Comparator { o1, o2 ->
-        collator.compare(convert(o1), convert(o2))
+        collator.get()!!.compare(convert(o1), convert(o2))
     }
 }
 

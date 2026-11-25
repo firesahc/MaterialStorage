@@ -49,7 +49,19 @@ class AppListAdapter(
         if (BuildConfig.DEBUG) {
             Log.i("MC/Test", "onBindViewHolder: position=$position, package=${model.packageInfo.packageName}")
         }
-        binding.icon.setImageDrawable(model.packageInfo.applicationInfo.loadIcon(fragment.requireContext().packageManager))
+        val packageInfo = model.packageInfo
+        val packageName = packageInfo.packageName
+        val resources = fragment.resources
+        // 优先命中后台预取的缓存；未命中（快速滚动、预取预算耗尽）仍回退到主线程懒加载。
+        val icon = AppIconCache.get(packageName, packageInfo.lastUpdateTime)?.newDrawable(resources)
+            ?: run {
+                val loaded = packageInfo.applicationInfo.loadIcon(fragment.requireContext().packageManager)
+                loaded.constantState?.let {
+                    AppIconCache.put(packageName, packageInfo.lastUpdateTime, it)
+                }
+                loaded
+            }
+        binding.icon.setImageDrawable(icon)
         binding.title.text = run {
             val label = model.label
             if (model.mountRulesCount > 0 || model.readOnlyCount > 0) {

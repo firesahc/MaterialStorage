@@ -26,7 +26,7 @@ object LogTagFilter {
         // 生命周期与状态机
         "MC_BOOT", "MC_EVENT", "MC_STATE", "MC_DIAG",
         "MC/Test", "MC/StateMachine", "MC/BootState", "MC/XposedState",
-        "MC/MoreOptions", "MC/Launcher",
+        "MC/MoreOptions", "MC/Launcher", "MC/AppList", "MC/Record",
         // 重定向与挂载
         "MC_REDIRECT",
         // 组件级

@@ -8,20 +8,21 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.Observer
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import me.gm.cleaner.BuildConfig
 import me.gm.cleaner.core.config.ConfiguredPolicyStoreProvider
 import me.gm.cleaner.core.config.ServicePreferences
 import me.gm.cleaner.core.config.getUninstalledReadOnlyPackages
 import me.gm.cleaner.core.config.getUninstalledSrPackages
-import me.gm.cleaner.core.config.readOnlyPackages
-import me.gm.cleaner.core.config.srPackages
+import me.gm.cleaner.core.config.toPolicyRuleIndex
 import me.gm.cleaner.util.PermissionUtils
 
 abstract class AppListViewModelBase(application: Application) :
@@ -78,8 +79,13 @@ abstract class AppListViewModelBase(application: Application) :
         )
         AppListState.Done(sequence.toList())
     }
+        // 过滤 + Collator 排序几百项不是零成本；collector 在 Main，flowOn 只把上游变换移出主线程。
+        .flowOn(Dispatchers.Default)
 
-    protected suspend fun loadAppsCommon() {
+    /** 主界面只显示已配置应用，预取它们的图标收益高；全部应用选择页应关闭。 */
+    protected open val shouldPreloadIcons: Boolean = true
+
+    protected suspend fun loadAppsCommon(): Boolean {
         if (BuildConfig.DEBUG) Log.i(
             "CleanerTest",
             "AppListViewModelBase.loadAppsCommon: start"
@@ -87,14 +93,14 @@ abstract class AppListViewModelBase(application: Application) :
         _appsFlow.value = AppListState.Loading
 
         val result = try {
-            AppListLoader(context = getApplication()).load()
+            AppListLoader(context = getApplication()).load(preloadIcons = shouldPreloadIcons)
         } catch (e: Exception) {
             if (BuildConfig.DEBUG) Log.e(
                 "CleanerTest",
                 "AppListViewModelBase.loadAppsCommon: failed to load apps", e
             )
             _appsFlow.value = AppListState.Error(e.message ?: "Unknown error")
-            return
+            return false
         }
         if (BuildConfig.DEBUG) Log.i(
             "CleanerTest",
@@ -123,6 +129,7 @@ abstract class AppListViewModelBase(application: Application) :
             }
         }
         _appsFlow.value = AppListState.Done(list)
+        return result.isFullList
     }
 
     /** 策略快照或偏好变化后的统一刷新入口：先防抖，再决定增量/全量。 */
@@ -141,8 +148,9 @@ abstract class AppListViewModelBase(application: Application) :
     private suspend fun handlePolicyChanged() {
         val value = _appsFlow.value
         if (value !is AppListState.Done) return
-        val store = ConfiguredPolicyStoreProvider.instance
-        val configuredNames = (store.srPackages + store.readOnlyPackages).toSet()
+        // 快照由本进程的 store 在每次成功写入后发布；这里在主线程，避免再读磁盘。
+        val counts = ConfiguredPolicyStoreProvider.instance.snapshots.value.toPolicyRuleIndex()
+        val configuredNames = counts.configuredPackages
         val currentNames = value.list.map { it.packageInfo.packageName }.toSet()
         val missingConfigured = configuredNames - currentNames
         if (missingConfigured.isNotEmpty()) {
@@ -150,7 +158,7 @@ abstract class AppListViewModelBase(application: Application) :
             loadAppsCommon()
             return
         }
-        val updated = AppListLoader(context = getApplication()).updateRuleCount(value.list)
+        val updated = AppListLoader(context = getApplication()).updateRuleCount(value.list, counts)
         _appsFlow.value = AppListState.Done(updated)
     }
 

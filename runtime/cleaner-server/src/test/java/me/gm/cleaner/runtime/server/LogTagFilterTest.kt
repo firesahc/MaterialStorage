@@ -63,6 +63,8 @@ class LogTagFilterTest {
             "MC/StateMachine",
             "MC/BootState",
             "MC/XposedState",
+            "MC/AppList",
+            "MC/Record",
             // 组件级
             "DataBus",
             "NativeHookStatus",
