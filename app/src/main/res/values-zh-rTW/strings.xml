@@ -230,6 +230,7 @@
     <string name="enabled_mount_rules_count">%d 條掛載規則</string>
     <string name="enabled_read_only_count">%d 條只讀規則</string>
     <string name="storage_redirect_title">存儲重定向</string>
+    <string name="mount_app_picker_title">選擇應用</string>
     <string name="storage_redirect_unsupported">免費版暫不支持安卓 %s</string>
     <string name="storage_redirect_list_mounted">已掛載</string>
     <string name="storage_redirect_list_unknown">未知狀態</string>

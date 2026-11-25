@@ -47,7 +47,10 @@ class MountAppPickerFragment : BaseFragment() {
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         val binding = MountAppPickerFragmentBinding.inflate(inflater)
-        setAppBar(binding.root)
+        val toolbar = setAppBar(binding.root)
+        toolbar.title = getString(R.string.mount_app_picker_title)
+        toolbar.setNavigationIcon(R.drawable.ic_outline_close_24)
+        toolbar.setNavigationOnClickListener { requireActivity().onBackPressed() }
 
         val adapter = AppListAdapter(
             fragment = this,

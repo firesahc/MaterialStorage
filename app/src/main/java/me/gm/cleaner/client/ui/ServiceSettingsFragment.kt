@@ -31,6 +31,7 @@ class ServiceSettingsFragment : BaseFragment() {
     ): View {
         val binding = ServiceSettingsFragmentBinding.inflate(layoutInflater)
         val toolbar = setAppBar(binding.root)
+        toolbar.title = getString(R.string.service_settings)
 
         val viewPager = binding.viewPager
         viewPagerRef = WeakReference(viewPager)

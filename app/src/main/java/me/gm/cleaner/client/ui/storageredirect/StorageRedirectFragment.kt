@@ -69,11 +69,9 @@ class StorageRedirectFragment : BaseFragment() {
         val binding = StorageRedirectFragmentBinding.inflate(layoutInflater)
         setAppBar(binding.root)
         val toolbar = requireToolbar()
-        toolbar.post {
-            toolbar.setNavigationOnClickListener { onNavigateUp(ASK_OR_EXIT) }
-            toolbar.setNavigationIcon(R.drawable.ic_outline_close_24)
-            toolbar.title = AppLabelCache.getPackageLabel(args.pi)
-        }
+        toolbar.setNavigationOnClickListener { onNavigateUp(ASK_OR_EXIT) }
+        toolbar.setNavigationIcon(R.drawable.ic_outline_close_24)
+        toolbar.title = AppLabelCache.getPackageLabel(args.pi)
 
         val list = binding.list
         requireAppBarLayout().setLiftOnScrollTargetView(list)

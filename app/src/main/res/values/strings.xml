@@ -256,6 +256,7 @@
     <string name="enabled_mount_rules_count">%d mount rules</string>
     <string name="enabled_read_only_count">%d read only rules</string>
     <string name="storage_redirect_title">STORAGE REDIRECT</string>
+    <string name="mount_app_picker_title">Select App</string>
     <string name="storage_redirect_unsupported">The free version currently does not support Android %s</string>
     <string name="storage_redirect_list_mounted">Mounted</string>
     <string name="storage_redirect_list_unknown">Unknown state</string>
