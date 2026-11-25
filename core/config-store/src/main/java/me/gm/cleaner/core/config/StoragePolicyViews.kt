@@ -60,6 +60,61 @@ fun ConfiguredPolicyStore.getUninstalledReadOnlyPackages(installedPackages: Set<
     return (packages - installedPackages).toList()
 }
 
+/**
+ * 一次快照构建的批量策略索引。
+ *
+ * 为什么需要：`getPackageSrCount()` / `getPackageReadOnly()` 每次调用都会
+ * `readRedirect()` / `readReadOnly()`，即读盘 + 解析整个 JSON + 计算 revision。
+ * 应用列表对几百个包逐个调用时，这个成本会线性放大；本索引只需一次
+ * [ConfiguredPolicyStore.readSnapshot]，之后按包名 O(1) 查询。
+ *
+ * 索引只保存不可变结果，可安全跨线程读取。
+ */
+class PolicyRuleIndex internal constructor(
+    private val srCounts: Map<String, Int>,
+    private val readOnlyPathsByPackage: Map<String, List<String>>,
+) {
+    /** 与 [getPackageSrCount] 结果一致。 */
+    fun srCount(packageName: String): Int = srCounts[packageName] ?: 0
+
+    /** 与 `getPackageReadOnly(packageName).size` 结果一致。 */
+    fun readOnlyCount(packageName: String): Int =
+        readOnlyPathsByPackage[packageName]?.size ?: 0
+
+    /**
+     * 与 [getPackageReadOnly] 结果一致；userId 非 0 时按同一规则展开路径。
+     */
+    fun readOnlyPaths(packageName: String, userId: Int = 0): List<String> {
+        val paths = readOnlyPathsByPackage[packageName] ?: return emptyList()
+        return if (userId == 0) paths else paths.map { expandPathAsUser(it, userId) }
+    }
+
+    /** 配置过任意规则（重定向或只读）的包名集合。 */
+    val configuredPackages: Set<String>
+        get() = srCounts.keys + readOnlyPathsByPackage.keys
+}
+
+/** 纯函数：从一次已读取的快照构建索引，不触发额外磁盘读取。 */
+fun ConfiguredPolicySnapshot.toPolicyRuleIndex(): PolicyRuleIndex {
+    val srCounts = HashMap<String, Int>(redirect.envelope.redirectPolicies.size)
+    for (policy in redirect.envelope.redirectPolicies) {
+        srCounts[policy.scope.packageName] = policy.rules.size
+    }
+    val readOnlyPaths = HashMap<String, MutableList<String>>()
+    for (rule in readOnly.envelope.readOnlyRules) {
+        readOnlyPaths.getOrPut(rule.scope.packageName) { mutableListOf() }
+            .add(rule.visiblePath)
+    }
+    return PolicyRuleIndex(
+        srCounts = srCounts,
+        readOnlyPathsByPackage = readOnlyPaths.mapValues { it.value.toList() },
+    )
+}
+
+/** 一次读取两个策略域后构建索引，适合后台批量读取。 */
+fun ConfiguredPolicyStore.policyRuleIndex(): PolicyRuleIndex =
+    readSnapshot().toPolicyRuleIndex()
+
 private val VIEW_APP_DATA_DIR_PATHS: Pattern by lazy {
     Pattern.compile("(?i)(^/[^/]+/[^/]+/)([0-9]+)(/)?([^/]+)?(/.*)?")
 }
