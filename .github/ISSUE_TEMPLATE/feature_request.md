@@ -30,7 +30,7 @@ assignees: ''
 - Device / OS:
 - Root 方案: [e.g. KernelSU / APatch / Magisk]
 - LSPosed 模块是否启用:
-- Cleaner Version:
+- MaterialStorage Version:
 
 **Additional context**
 其他补充信息或截图。

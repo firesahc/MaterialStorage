@@ -11,7 +11,7 @@ import java.net.URL
 
 object UpdateChecker {
     private const val LATEST_RELEASE_URL =
-        "https://api.github.com/repos/firesahc/MaterialCleaner/releases/latest"
+        "https://api.github.com/repos/firesahc/MaterialStorage/releases/latest"
 
     data class ReleaseInfo(
         val tagName: String,

@@ -1,7 +1,7 @@
 #Requires -Version 7
 <#
 .SYNOPSIS
-  MaterialCleaner 存储重定向结构质量门禁（G1/G2/G4/G5）。
+  MaterialStorage 存储重定向结构质量门禁（G1/G2/G4/G5）。
   G3（微类密度）与 G6（死代码占位）已删除：前者只输出不可行动的 WARN，
   且与职责拆分方向反向；后者只输出 SKIP，无检测能力。git 历史可找回。
 .DESCRIPTION

@@ -2,7 +2,7 @@ import org.apache.tools.ant.DirectoryScanner
 
 DirectoryScanner.removeDefaultExclude('**/.gitattributes')
 
-rootProject.name = "MaterialCleaner"
+rootProject.name = "MaterialStorage"
 
 // ── 应用模块 ──
 include ':app'

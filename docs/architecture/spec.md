@@ -1,4 +1,4 @@
-# MaterialCleaner 架构规范 
+# MaterialStorage 架构规范 
 
 > Status: Active
 > Scope: 全局架构、Storage Redirect、Runtime、DataBus、MediaProvider Hook、配置与演进约束

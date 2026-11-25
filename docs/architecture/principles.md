@@ -1,4 +1,4 @@
-# MaterialCleaner 设计理念
+# MaterialStorage 设计理念
 
 > 本文档回答“为什么”，而非“怎么做”。
 > 不可变量与判断规则见 `spec.md`，当前实现快照见 `current.md`。

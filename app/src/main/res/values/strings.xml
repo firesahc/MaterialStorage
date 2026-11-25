@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Home -->
-    <string name="app_name">Material Cleaner</string>
+    <string name="app_name">Material Storage</string>
     <string name="delimiter">,\ </string>
     <string name="yes">Yes</string>
     <string name="no">No</string>
@@ -44,7 +44,7 @@
     <!-- Settings -->
     <string name="service_and_notification_header">Service &amp; Notifications</string>
     <string name="start_on_boot_key" translatable="false">start_on_boot</string>
-    <string name="start_on_boot_title">Start Cleaner service on boot</string>
+    <string name="start_on_boot_title">Start Storage service on boot</string>
     <string name="start_on_boot_summary">Make sure the service works fine on your device before ticking.</string>
     <string name="post_notification_key" translatable="false">post_notification</string>
     <string name="post_notification_title">Receive update notifications</string>
@@ -112,7 +112,7 @@
     <string name="auto_logging_summary">Continuously writes logcat output to /data/local/tmp/cleaner_logs/. Useful for troubleshooting boot or crash issues.</string>
     <string name="auto_logging_stats_summary">Logs: %1$s across %2$d files</string>
     <string name="log_stats_unavailable">Log stats temporarily unavailable</string>
-    <string name="log_stats_service_unavailable">Cleaner service not running. Please start the service.</string>
+    <string name="log_stats_service_unavailable">Storage service not running. Please start the service.</string>
     <string name="app_category_default" translatable="false">https://raw.githubusercontent.com/MaterialCleaner/AppsTypeMarks/main/</string>
     <string name="app_category_title">Online Apps Type Marks</string>
     <string name="record_shared_storage_title">Record file operations in shared storage</string>
@@ -242,11 +242,11 @@
 
     <!-- Service -->
     <string name="no_root_access">Can\'t access root</string>
-    <string name="confirm_restart_service">Restart Cleaner service</string>
+    <string name="confirm_restart_service">Restart Storage service</string>
     <string name="service_need_upgrade">SERVICE NEED UPGRADE</string>
     <string name="service_need_reboot">Update installed, please reboot your phone</string>
-    <string name="service_exception_logcat_shutdown">The logcat is shutdown, please restart the Cleaner service.</string>
-    <string name="service_settings">Material Cleaner</string>
+    <string name="service_exception_logcat_shutdown">The logcat is shutdown, please restart the Storage service.</string>
+    <string name="service_settings">Material Storage</string>
     <string name="file_picker_title">Pick file</string>
     <string name="file_picker_unselected">Selected file</string>
     <string name="file_picker_hint">Path</string>
@@ -370,13 +370,13 @@
     <string name="network_connection_failed">Network connection failed</string>
 
     <!-- About -->
-    <string name="slogan">Material Design cleanup application</string>
+    <string name="slogan">Material Design storage application</string>
     <string name="about_header">About</string>
     <string name="about_key" translatable="false">about</string>
     <string name="about_title">About</string>
     <string name="about_summary">Version and project info</string>
     <string name="about_version">Version %s</string>
-    <string name="about_project_url">Project: https://github.com/firesahc/MaterialCleaner</string>
+    <string name="about_project_url">Project: https://github.com/firesahc/MaterialStorage</string>
     <string name="open_project_url">Open project</string>
     <string name="cancel">Cancel</string>
 

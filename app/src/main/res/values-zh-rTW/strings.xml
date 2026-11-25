@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- 主页 -->
-    <string name="app_name">質感清理</string>
+    <string name="app_name">質感儲存</string>
     <string name="delimiter">、</string>
     <string name="yes">是</string>
     <string name="no">否</string>
@@ -43,7 +43,7 @@
 
     <!-- 设置 -->
     <string name="service_and_notification_header">服務與通知</string>
-    <string name="start_on_boot_title">開機啟動 Cleaner 服務</string>
+    <string name="start_on_boot_title">開機啟動儲存服務</string>
     <string name="start_on_boot_summary">啟用前請確保服務能在您的設備上正常工作</string>
     <string name="post_notification_title">接收更新通知</string>
     <string name="check_update_title">檢查更新</string>
@@ -87,7 +87,7 @@
     <string name="auto_logging_summary">持續將 logcat 輸出寫入 /data/local/tmp/cleaner_logs/，有助於排查啟動或崩潰問題。</string>
     <string name="auto_logging_stats_summary">日誌：%1$s，共 %2$d 個檔案</string>
     <string name="log_stats_unavailable">暫時無法獲取日誌統計</string>
-    <string name="log_stats_service_unavailable">Cleaner 服務未運行，請啟動服務</string>
+    <string name="log_stats_service_unavailable">儲存服務未運行，請啟動服務</string>
     <string name="app_category_title">在線應用類型標記</string>
     <string name="record_shared_storage_title">記錄共享儲存空間中的文件操作</string>
     <string name="record_external_app_specific_storage_title">（實驗性）記錄外部應用專屬儲存空間中的文件操作</string>
@@ -214,13 +214,13 @@
     <string name="parent_directory">..</string>
 
     <!-- 服务 -->
-    <string name="confirm_restart_service">重啟 Cleaner 服務</string>
+    <string name="confirm_restart_service">重啟儲存服務</string>
     <string name="no_root_access">無法訪問 root</string>
     <string name="service_need_upgrade">服務需升級</string>
     <string name="service_need_reboot">已安裝更新，請重啟手機</string>
-    <string name="service_exception_logcat_shutdown">日誌貓已退出，請重啟 Cleaner 服務</string>
+    <string name="service_exception_logcat_shutdown">日誌貓已退出，請重啟儲存服務</string>
 
-    <string name="service_settings">質感清理</string>
+    <string name="service_settings">質感儲存</string>
     <string name="file_picker_title">選擇文件</string>
     <string name="file_picker_unselected">所選文件</string>
     <string name="file_picker_hint">路徑</string>
@@ -340,12 +340,12 @@
     <string name="network_connection_failed">網路連線失敗</string>
 
     <!-- 關於 -->
-    <string name="slogan">質感設計的清理應用</string>
+    <string name="slogan">質感設計的儲存應用</string>
     <string name="about_header">關於</string>
     <string name="about_title">關於</string>
     <string name="about_summary">版本與專案資訊</string>
     <string name="about_version">版本 %s</string>
-    <string name="about_project_url">專案地址：https://github.com/firesahc/MaterialCleaner</string>
+    <string name="about_project_url">專案地址：https://github.com/firesahc/MaterialStorage</string>
     <string name="open_project_url">打開專案地址</string>
     <string name="cancel">取消</string>
 

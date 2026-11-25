@@ -30,7 +30,7 @@ assignees: ''
 - OS: [e.g. Android 14]
 - Root 方案及版本: [e.g. KernelSU 1.0 / APatch / Magisk 28]
 - LSPosed 版本及模块启用状态: [e.g. 已启用，作用域已勾选 com.android.providers.media.module / 未启用]
-- Cleaner Version: [e.g. 4.1.0]
+- MaterialStorage Version: [e.g. 4.1.0]
 
 **诊断包（必填）**
 请从应用内导出诊断包并随 issue 上传（设置 → 导出诊断包）。

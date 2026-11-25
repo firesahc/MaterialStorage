@@ -588,7 +588,7 @@ class MoreOptionsFragment : BaseSettingsFragment() {
                 )
                 .setPositiveButton(R.string.open_project_url) { _, _ ->
                     val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                        data = android.net.Uri.parse("https://github.com/firesahc/MaterialCleaner")
+                        data = android.net.Uri.parse("https://github.com/firesahc/MaterialStorage")
                     }
                     startActivity(intent)
                 }

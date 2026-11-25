@@ -1,9 +1,9 @@
-# MaterialCleaner — 质感清理
+# MaterialStorage — 质感存储
 
 > 一款 Android 存储重定向工具，通过 bind mount + Xposed Hook 实现文件系统级路径重定向。
 > 需要 Root（KernelSU / APatch / Magisk）和 LSPosed 框架。
 >
-> 详细中文文档见 [`MaterialCleaner.wiki`](https://github.com/firesahc/MaterialCleaner/wiki)（GitHub Wiki 格式：架构、领域术语、DataBus、三层 Hook、构建部署、诊断排障）。
+> 详细中文文档见 [`MaterialStorage.wiki`](https://github.com/firesahc/MaterialStorage/wiki)（GitHub Wiki 格式：架构、领域术语、DataBus、三层 Hook、构建部署、诊断排障）。
 
 ---
 
@@ -53,7 +53,7 @@
 ### 模块结构
 
 ```
-MaterialCleaner/
+MaterialStorage/
 ├── app/                         # Android App 主模块（UI / ViewModel / native 打包）
 ├── core/
 │   ├── ipc-contract/            # AIDL 与跨进程模型
@@ -70,7 +70,7 @@ MaterialCleaner/
 ├── app/src/main/assets/         # xposed_init + main.jar（buildXposedMainJar 生成）
 ├── docs/adr/                    # 架构决策记录（14 篇，状态见 docs/architecture/adr-status.md）
 ├── scripts/gates/               # 门禁检查脚本
-└── MaterialCleaner.wiki/        # GitHub Wiki（中文文档主页）
+└── MaterialStorage.wiki/        # GitHub Wiki（中文文档主页）
 ```
 
 ## 环境要求
@@ -113,7 +113,7 @@ set ANDROID_HOME=D:\Android\Sdk
 
 ```bash
 # 安装 Debug APK
-adb install -r app/build/outputs/apk/debug/Cleaner_*-debug.apk
+adb install -r app/build/outputs/apk/debug/MaterialStorage_*-debug.apk
 
 # 强制重启服务器（安装后需要）
 adb shell am force-stop me.gm.cleaner
@@ -123,7 +123,7 @@ adb shell am start -n me.gm.cleaner/.client.ui.ServiceSettingsActivity
 ### LSPosed 配置
 
 1. 安装 APK 后打开 LSPosed Manager
-2. 启用 MaterialCleaner 模块
+2. 启用 MaterialStorage 模块
 3. 作用域勾选当前设备的 MediaProvider 包，常见为 `com.android.providers.media.module`、`com.google.android.providers.media.module` 或 `com.android.providers.media`
 4. 重启设备
 
@@ -191,4 +191,4 @@ vibe coding的价格有些超出预期🫠，如果觉得软件好用可以赞�
 >
 > 两年多时间过去了，我自己的软件终于有了完善的逻辑，也接入了 Google Play 的支付系统。虽然项目收入很低，总收入约 8600 元（相关资料已放在最后的 release 中），平均下来连低保水平都不到，但是看着与我有同样需求的用户付费支持、在群内积极反馈应用问题，自己的需求也得到了满足，我还是非常开心。然而在我项目巨大亏损的情况下，却被酷安大神带节奏，质疑定价太贵。虽然这个应用的功能也许确实会让多数用户认为不值得（也许这也就是手机厂商都不愿意做的原因吧，性价比太低），但是我认为考虑到做小众项目更加困难，70 人民币永久的价格还算合理。然而即便如此，当我看到评论区一些用户也说太贵，我决定还是开源并放出一个完全免费的版本。然而在得罪两百多个付费用户之后，得到的结果是评论区把带节奏的人当做英雄，带节奏之人的回复是“既然有能力改变”，有能力说的是我吗？恐怕是在炫耀有能力轻松地让一个弱小项目破产的你。
 >
-> 现在这个项目已经大概率要停更了，如果你还在寻找替代品，我还是会推荐存储空间隔离，第一是因为据用户反馈它对各种定制系统有良好的兼容性（这是质感清理现在还没有做到的），第二是因为我不觉得谁还有动力和实力克服众多困难开发下一个替代品了。
+> 现在这个项目已经大概率要停更了，如果你还在寻找替代品，我还是会推荐存储空间隔离，第一是因为据用户反馈它对各种定制系统有良好的兼容性（这是质感存储现在还没有做到的），第二是因为我不觉得谁还有动力和实力克服众多困难开发下一个替代品了。

@@ -79,7 +79,7 @@ object DiagnosticArchive {
     private fun createArchiveFile(outDir: File, timestamp: String): File {
         val archive = Files.createTempFile(
             outDir.toPath(),
-            "material-cleaner-diagnostics-$timestamp-",
+            "material-storage-diagnostics-$timestamp-",
             ".zip"
         ).toFile()
         setOwnerOnly(archive, executable = false)
@@ -98,7 +98,7 @@ object DiagnosticArchive {
     }
 
     private fun privacyNotice(): String = buildString {
-        appendLine("This diagnostics package is intended for troubleshooting Material Cleaner.")
+        appendLine("This diagnostics package is intended for troubleshooting Material Storage.")
         appendLine("It may include device details, process and mount state, logcat output,")
         appendLine("DataBus snapshots, redirect rules, and file paths.")
         appendLine("Basic identifiers such as build fingerprint, APK source paths,")
@@ -125,14 +125,14 @@ object DiagnosticArchive {
     }
 
     private fun buildSummary(server: CleanerServer): String = buildString {
-        appendLine("Material Cleaner diagnostics summary")
+        appendLine("Material Storage diagnostics summary")
         appendLine("Generated at: ${System.currentTimeMillis()}")
         appendLine()
         appendLine("Read this first:")
         appendLine("- status/orchestrated_status.json has the full five-layer state.")
         appendLine("- status/native_hook_status_pretty.json has MediaProvider/FUSE hook details.")
         appendLine("- databus/health.json has queue, snapshot, and permission health.")
-        appendLine("- logs/logcat_material_cleaner_filtered.txt has focused runtime logs.")
+        appendLine("- logs/logcat_material_storage_filtered.txt has focused runtime logs.")
         appendLine("- commands/media_provider_maps.txt and commands/media_provider_mountinfo.txt prove native loading and mount state.")
         appendLine("- commands/dmesg_evidence.txt has kernel-side denials (SELinux avc, FUSE, mount, namespace).")
         appendLine("- logs/logcat_crash_recent.txt and logs/logcat_media_provider_pid.txt cover crash and hook-host evidence.")
@@ -274,14 +274,14 @@ object DiagnosticArchive {
     }
 
     private fun buildSummaryZhCn(server: CleanerServer): String = buildString {
-        appendLine("Material Cleaner 诊断包概览")
+        appendLine("Material Storage 诊断包概览")
         appendLine("生成时间：${System.currentTimeMillis()}")
         appendLine()
         appendLine("优先阅读：")
         appendLine("- status/orchestrated_status.json：完整五层运行状态。")
         appendLine("- status/native_hook_status_pretty.json：MediaProvider/FUSE Hook 详情。")
         appendLine("- databus/health.json：队列、快照和权限健康状态。")
-        appendLine("- logs/logcat_material_cleaner_filtered.txt：聚焦运行日志。")
+        appendLine("- logs/logcat_material_storage_filtered.txt：聚焦运行日志。")
         appendLine("- commands/media_provider_maps.txt 与 commands/media_provider_mountinfo.txt：native 加载与挂载状态证据。")
         appendLine("- commands/dmesg_evidence.txt：内核侧拒绝证据（SELinux avc、FUSE、mount、namespace）。")
         appendLine("- logs/logcat_crash_recent.txt 与 logs/logcat_media_provider_pid.txt：崩溃与 Hook 宿主进程证据。")
@@ -546,7 +546,7 @@ object DiagnosticArchive {
         )
         addCommand(
             zip,
-            "logs/logcat_material_cleaner_filtered.txt",
+            "logs/logcat_material_storage_filtered.txt",
             "/system/bin/logcat -d -v threadtime -b main,system,crash -t 3000 " +
                     LogTagFilter.FILTER_SPEC,
         )

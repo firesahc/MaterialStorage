@@ -27,7 +27,7 @@ android {
     }
     applicationVariants.all { variant ->
         variant.outputs.all { output ->
-            outputFileName = "Cleaner_${defaultConfig.versionName}-${variant.buildType.name}.apk"
+            outputFileName = "MaterialStorage_${defaultConfig.versionName}-${variant.buildType.name}.apk"
         }
     }
     buildTypes {

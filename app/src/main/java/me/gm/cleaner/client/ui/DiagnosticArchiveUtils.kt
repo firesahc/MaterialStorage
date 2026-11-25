@@ -68,7 +68,7 @@ private fun Fragment.createDiagnosticsArchiveAndShare(context: Context) {
             cleanupOldDiagnosticArchives(context)
             val logFile = File(
                 context.cacheDir,
-                "material-cleaner-diagnostics-${System.currentTimeMillis()}.zip"
+                "material-storage-diagnostics-${System.currentTimeMillis()}.zip"
             )
             val pfd = runCatching { CleanerClient.service?.openDiagnosticsArchive() }
                 .onFailure {
@@ -250,7 +250,7 @@ private fun fallbackPrivacyNotice(): String = buildString {
 }
 
 private fun buildFallbackSummaryZhCn(status: OrchestratedRuntimeStatus?): String = buildString {
-    appendLine("Material Cleaner 诊断包概览（App fallback）")
+    appendLine("Material Storage 诊断包概览（App fallback）")
     appendLine("生成时间：${System.currentTimeMillis()}")
     appendLine()
     appendLine("说明：")
@@ -434,7 +434,7 @@ private fun redact(content: String): String {
 
 private fun cleanupOldDiagnosticArchives(context: Context) {
     context.cacheDir.listFiles()
-        ?.filter { it.isFile && it.name.startsWith("material-cleaner-diagnostics-") }
+        ?.filter { it.isFile && it.name.startsWith("material-storage-diagnostics-") }
         ?.sortedByDescending { it.lastModified() }
         ?.drop(3)
         ?.forEach { it.delete() }

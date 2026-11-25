@@ -1,6 +1,6 @@
-# MaterialCleaner 存储策略领域
+# MaterialStorage 存储策略领域
 
-本上下文定义 MaterialCleaner 对应用共享存储进行路径映射和访问控制时使用的统一语言。术语描述业务含义，不描述 Hook、挂载或数据格式等实现细节。
+本上下文定义 MaterialStorage 对应用共享存储进行路径映射和访问控制时使用的统一语言。术语描述业务含义，不描述 Hook、挂载或数据格式等实现细节。
 
 ## 路径与映射
 
