@@ -94,6 +94,17 @@ class FileSystemRecordFragment : BaseServiceSettingsFragment() {
                     fileSystemRecordAdapter.submitList(emptyList())
                 }
 
+                is FileSystemRecordState.Unavailable -> {
+                    binding.progress.hide()
+                    binding.warningContainer.isVisible = true
+                    binding.warning.setText(R.string.filesystem_record_service_unavailable)
+                    binding.button.setText(R.string.filesystem_record_retry)
+                    binding.button.setOnClickListener {
+                        viewModel.retryLoading()
+                    }
+                    fileSystemRecordAdapter.submitList(emptyList())
+                }
+
                 is FileSystemRecordState.LoadingMore -> {
                     binding.progress.hide()
                     loadingMoreAdapter.setProgress(record.progress)

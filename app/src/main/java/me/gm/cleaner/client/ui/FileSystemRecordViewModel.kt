@@ -1,12 +1,15 @@
 package me.gm.cleaner.client.ui
 
 import android.app.Application
+import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import android.os.SystemClock
 import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -14,19 +17,22 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.gm.cleaner.BuildConfig
 import me.gm.cleaner.client.CleanerClient
-import me.gm.cleaner.dao.AppLabelCache
+import me.gm.cleaner.core.common.RuntimeFileUtils
 import me.gm.cleaner.core.config.ConfiguredPolicyStoreProvider
+import me.gm.cleaner.core.config.PolicyRuleIndex
 import me.gm.cleaner.core.config.ServicePreferences
-import me.gm.cleaner.core.config.getPackageReadOnly
+import me.gm.cleaner.core.config.policyRuleIndex
+import me.gm.cleaner.dao.AppLabelCache
 import me.gm.cleaner.model.BulkCursor
 import me.gm.cleaner.model.FileSystemEvent
 import me.gm.cleaner.model.FileSystemRecordContract
 import me.gm.cleaner.server.IFileChangeObserver
-import me.gm.cleaner.core.common.RuntimeFileUtils
 import java.lang.ref.WeakReference
 import java.util.concurrent.Executors
 import kotlin.io.path.Path
@@ -34,24 +40,43 @@ import kotlin.io.path.pathString
 
 class FileSystemRecordViewModel(application: Application) :
     BaseServiceSettingsViewModel(application) {
-    internal val eventModelMapper: (FileSystemEvent) -> FileSystemRecordModel = { event ->
-        val pi = try {
+    private val packageInfoCache = HashMap<String, PackageInfo?>()
+    private var policyIndex: PolicyRuleIndex? = null
+
+    /** 当前映射使用的只读策略索引；首次使用或失效时构建一次，之后按包名查表。 */
+    private fun ensurePolicyIndex(): PolicyRuleIndex =
+        policyIndex ?: ConfiguredPolicyStoreProvider.instance.policyRuleIndex()
+            .also { policyIndex = it }
+
+    private fun packageInfoFor(packageName: String): PackageInfo? {
+        if (packageInfoCache.containsKey(packageName)) {
+            return packageInfoCache[packageName]
+        }
+        val value = try {
             CleanerClient.service?.getPackageInfo(
-                event.packageName, PackageManager.GET_PERMISSIONS
+                packageName, PackageManager.GET_PERMISSIONS
             )
         } catch (e: Exception) {
-            if (BuildConfig.DEBUG) Log.w("CleanerTest", "eventModelMapper: getPackageInfo failed", e)
+            if (BuildConfig.DEBUG) Log.w("CleanerTest", "mapEvent: getPackageInfo failed", e)
             null
         }
-        val readOnlyPaths = ConfiguredPolicyStoreProvider.instance.getPackageReadOnly(
-            event.packageName, RuntimeFileUtils.extractUserIdFromPath(event.path)
+        packageInfoCache[packageName] = value
+        return value
+    }
+
+    /** 只在单线程 dispatcher 上调用，避免对 PackageInfo 缓存加锁。 */
+    internal fun mapEvent(event: FileSystemEvent): FileSystemRecordModel {
+        val pi = packageInfoFor(event.packageName)
+        val readOnlyPaths = ensurePolicyIndex().readOnlyPaths(
+            event.packageName,
+            RuntimeFileUtils.extractUserIdFromPath(event.path),
         )
-        FileSystemRecordModel(
+        return FileSystemRecordModel(
             event,
             pi,
             if (pi == null) null else AppLabelCache.getPackageLabel(pi),
             readOnlyPaths.contains(event.path) ||
-                    readOnlyPaths.contains(Path(event.path).parent.pathString)
+                    readOnlyPaths.contains(Path(event.path).parent.pathString),
         )
     }
 
@@ -78,7 +103,7 @@ class FileSystemRecordViewModel(application: Application) :
             }
             fileSystemRecord += list
         }
-        return fileSystemRecord.map(eventModelMapper)
+        return fileSystemRecord.map(::mapEvent)
     }
 
     private fun CoroutineScope.loadMoreInternal(size: Int): List<FileSystemRecordModel> {
@@ -102,6 +127,9 @@ class FileSystemRecordViewModel(application: Application) :
     }
 
     fun loadMore() {
+        if (!::bulkCursor.isInitialized) {
+            return
+        }
         viewModelScope.launch(loadJob + dispatcher) {
             _fileSystemRecordLiveData.postValue(FileSystemRecordState.LoadingMore(-1))
             fileSystemRecord += loadMoreInternal(LOAD_SIZE)
@@ -120,9 +148,16 @@ class FileSystemRecordViewModel(application: Application) :
             val unloadedSize = bulkCursor.count - (fileSystemRecord.size - addedByObserver)
             var loaded = 0
             while (loaded < unloadedSize) {
-                fileSystemRecord += loadMoreForRequestedSize(1)
-                loaded++
-                _fileSystemRecordLiveData.postValue(FileSystemRecordState.LoadingMore(100 * loaded / unloadedSize))
+                val batchSize = minOf(LOAD_ALL_BATCH_SIZE, unloadedSize - loaded)
+                val batch = loadMoreForRequestedSize(batchSize)
+                if (batch.isEmpty()) {
+                    break
+                }
+                fileSystemRecord += batch
+                loaded += batch.size
+                _fileSystemRecordLiveData.postValue(
+                    FileSystemRecordState.LoadingMore(100 * loaded / unloadedSize)
+                )
             }
             _fileSystemRecordLiveData.postValue(FileSystemRecordState.Done(fileSystemRecord.toList()))
         }
@@ -136,27 +171,47 @@ class FileSystemRecordViewModel(application: Application) :
         loadJob.cancel()
         loadJob = SupervisorJob()
         viewModelScope.launch(loadJob + dispatcher) {
+            val t0 = SystemClock.elapsedRealtime()
             fileSystemRecord.clear()
             addedByObserver = 0
+            packageInfoCache.clear()
+            policyIndex = null
             ensureActive()
             if (::bulkCursor.isInitialized) {
                 bulkCursor.close()
             }
-            // 等待服务器就绪（最长重试 20 次 = ~10 秒）
-            var retries = 0
-            while (CleanerClient.service == null && retries < 20) {
-                delay(500)
-                retries++
-                ensureActive()
-            }
-            if (CleanerClient.service == null) {
-                if (BuildConfig.DEBUG) Log.e("CleanerTest", "FileSystemRecord.reload: server not ready after timeout")
+
+            val service = CleanerClient.service
+            if (service == null) {
+                if (BuildConfig.DEBUG) Log.e("CleanerTest", "FileSystemRecord.reload: server not ready")
+                _fileSystemRecordLiveData.postValue(FileSystemRecordState.Unavailable)
                 return@launch
             }
-            bulkCursor = CleanerClient.service!!.queryAllRecords(
-                isHideAppSpecificStorage, if (isSearching) queryText else null
-            ) ?: return@launch
+
+            val cursor = try {
+                service.queryAllRecords(
+                    isHideAppSpecificStorage,
+                    if (isSearching) queryText else null,
+                )
+            } catch (e: Exception) {
+                if (BuildConfig.DEBUG) Log.e("CleanerTest", "FileSystemRecord.reload: query failed", e)
+                _fileSystemRecordLiveData.postValue(FileSystemRecordState.Unavailable)
+                return@launch
+            } ?: run {
+                _fileSystemRecordLiveData.postValue(FileSystemRecordState.Unavailable)
+                return@launch
+            }
+            val t1 = SystemClock.elapsedRealtime()
+            bulkCursor = cursor
+            // 一次快照建索引，之后每条记录只做内存查表。
+            policyIndex = ConfiguredPolicyStoreProvider.instance.policyRuleIndex()
             fileSystemRecord += loadMoreInternal(LOAD_SIZE)
+            val t2 = SystemClock.elapsedRealtime()
+            Log.i(
+                "MC/Record",
+                "reload: records=${fileSystemRecord.size} query=${t1 - t0}ms" +
+                    " map=${t2 - t1}ms total=${t2 - t0}ms",
+            )
             _fileSystemRecordLiveData.postValue(FileSystemRecordState.Done(fileSystemRecord.toList()))
         }
     }
@@ -180,29 +235,64 @@ class FileSystemRecordViewModel(application: Application) :
 
     private val fileSystemChangeObserver = FileChangeListener(this)
 
-    fun startLoadingRecord() {
-        viewModelScope.launch {
-            // 服务器就绪后再注册文件变更观察者
-            var retries = 0
-            while (CleanerClient.service == null && retries < 20) {
-                delay(500)
-                retries++
-            }
-            try {
-                CleanerClient.service?.registerFileChangeObserver(fileSystemChangeObserver)
-            } catch (e: Exception) {
-                if (BuildConfig.DEBUG) Log.e("CleanerTest", "FileSystemRecord: register observer failed", e)
-            }
+    private var connectionJob: Job? = null
+    private var loadingStarted = false
+    private var observerRegistered = false
+
+    private fun registerFileChangeObserverOnce() {
+        if (observerRegistered) {
+            return
         }
-        viewModelScope.launch {
+        try {
+            CleanerClient.service?.registerFileChangeObserver(fileSystemChangeObserver)
+            observerRegistered = true
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) Log.e("CleanerTest", "FileSystemRecord: register observer failed", e)
+        }
+    }
+
+    fun startLoadingRecord() {
+        if (loadingStarted) {
+            return
+        }
+        loadingStarted = true
+        connectionJob = viewModelScope.launch {
+            // pingBinder 是同步 Binder 调用；放到 IO，避免 server 假死时卡住主线程。
+            val ready = withContext(Dispatchers.IO) { CleanerClient.waitForBinder() }
+            if (!ready || CleanerClient.service == null) {
+                if (BuildConfig.DEBUG) Log.e("CleanerTest", "FileSystemRecord: server not ready after timeout")
+                _fileSystemRecordLiveData.postValue(FileSystemRecordState.Unavailable)
+                return@launch
+            }
+            registerFileChangeObserverOnce()
             combine(
                 _checkedFilterAppsFlow, _isHideAppSpecificStorageFlow,
-                _isSearchingFlow, _queryTextFlow
-            ) { _, _, _, _ -> }.collect {
+                _isSearchingFlow, _queryTextFlow,
+            ) { _, _, _, _ -> }.collectLatest {
+                // 搜索/过滤变化防抖：避免每敲一个字就重新查库并映射整页记录。
+                delay(SEARCH_DEBOUNCE_MS)
                 setLoading()
                 reload()
             }
         }
+    }
+
+    fun retryLoading() {
+        connectionJob?.cancel()
+        connectionJob = null
+        loadingStarted = false
+        loadJob.cancel()
+        loadJob = SupervisorJob()
+        if (observerRegistered) {
+            try {
+                CleanerClient.service?.unregisterFileChangeObserver(fileSystemChangeObserver)
+            } catch (e: Exception) {
+                if (BuildConfig.DEBUG) Log.w("CleanerTest", "FileSystemRecord: unregister observer failed", e)
+            }
+            observerRegistered = false
+        }
+        _fileSystemRecordLiveData.postValue(FileSystemRecordState.Loading)
+        startLoadingRecord()
     }
 
     init {
@@ -222,16 +312,25 @@ class FileSystemRecordViewModel(application: Application) :
     }
 
     override fun onCleared() {
+        connectionJob?.cancel()
         loadJob.cancel()
         if (::bulkCursor.isInitialized) {
             bulkCursor.close()
         }
+        if (observerRegistered) {
+            try {
+                CleanerClient.service?.unregisterFileChangeObserver(fileSystemChangeObserver)
+            } catch (e: Exception) {
+                if (BuildConfig.DEBUG) Log.w("CleanerTest", "FileSystemRecord: unregister observer failed", e)
+            }
+        }
         dispatcher.close()
-        CleanerClient.service?.unregisterFileChangeObserver(fileSystemChangeObserver)
     }
 
     companion object {
         const val LOAD_SIZE: Int = 100
+        private const val LOAD_ALL_BATCH_SIZE: Int = 500
+        private const val SEARCH_DEBOUNCE_MS: Long = 300L
     }
 }
 
@@ -239,6 +338,7 @@ sealed class FileSystemRecordState {
     data object Disabled : FileSystemRecordState()
     data object DbTooLarge : FileSystemRecordState()
     data object Loading : FileSystemRecordState()
+    data object Unavailable : FileSystemRecordState()
     data class LoadingMore(val progress: Int) : FileSystemRecordState()
     data class Done(val list: List<FileSystemRecordModel>) : FileSystemRecordState()
 }
@@ -260,7 +360,7 @@ class FileChangeListener(viewModel: FileSystemRecordViewModel) : IFileChangeObse
             }
             if (!viewModel.isSearching || path.contains(viewModel.queryText, true)) {
                 viewModel.fileSystemRecord.add(
-                    0, viewModel.eventModelMapper(
+                    0, viewModel.mapEvent(
                         FileSystemEvent(timeMillis, packageName, path, flags)
                     )
                 )

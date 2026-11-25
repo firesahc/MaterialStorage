@@ -355,6 +355,8 @@
     <string name="filesystem_record_distinct">Delete duplicate old records</string>
     <string name="filesystem_record_queried">Delete the currently queried records</string>
     <string name="filesystem_record_load_all">Load all remaining records</string>
+    <string name="filesystem_record_service_unavailable">The service is not running. Start it first, then retry.</string>
+    <string name="filesystem_record_retry">Retry</string>
     <string name="filesystem_record_flags_create">create %1$s %2$s</string>
     <string name="filesystem_record_flags_open">open %1$s %2$s</string>
     <string name="filesystem_record_flags_delete">delete %1$s %2$s</string>

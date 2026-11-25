@@ -325,6 +325,8 @@
     <string name="filesystem_record_distinct">删除重复的旧记录</string>
     <string name="filesystem_record_queried">删除当前查询出的记录</string>
     <string name="filesystem_record_load_all">加载剩余全部记录</string>
+    <string name="filesystem_record_service_unavailable">服务未运行，请先启动服务后重试</string>
+    <string name="filesystem_record_retry">重试</string>
     <string name="filesystem_record_flags_create">创建%1$s %2$s</string>
     <string name="filesystem_record_flags_open">打开%1$s %2$s</string>
     <string name="filesystem_record_flags_delete">删除%1$s %2$s</string>

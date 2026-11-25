@@ -36,7 +36,18 @@ class FileSystemRecordAdapter(private val fragment: FileSystemRecordFragment) :
         val binding = holder.binding
         val model = getItem(position)
         val packageInfo = model.packageInfo
-        binding.icon.setImageDrawable(packageInfo?.applicationInfo?.loadIcon(binding.root.context.packageManager))
+        val icon = packageInfo?.let {
+            val resources = binding.root.resources
+            AppIconCache.get(it.packageName, it.lastUpdateTime)?.newDrawable(resources)
+                ?: run {
+                    val loaded = it.applicationInfo?.loadIcon(binding.root.context.packageManager)
+                    loaded?.constantState?.let { state ->
+                        AppIconCache.put(it.packageName, it.lastUpdateTime, state)
+                    }
+                    loaded
+                }
+        }
+        binding.icon.setImageDrawable(icon)
         binding.title.text = if (packageInfo != null) {
             model.label
         } else {
