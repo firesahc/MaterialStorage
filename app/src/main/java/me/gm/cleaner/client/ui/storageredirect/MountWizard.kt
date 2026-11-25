@@ -481,9 +481,12 @@ class MountWizard(private val packageInfo: PackageInfo) {
             }
         }
         if (answers.q3) {
-            answers.mountRules().forEach { (source, target) ->
-                rules += source to target
-            }
+            val q3Rules = answers.mountRules()
+            rules += q3Rules
+            // 为可能被更宽泛 target 二次改写的 source 追加直接访问保护规则。
+            val protected = appendPreserveProtection(rules, q3Rules)
+            rules.clear()
+            rules.addAll(protected)
         }
         if (answers.q4) {
             val previousRules = rules.toList()
@@ -616,10 +619,14 @@ class MountWizard(private val packageInfo: PackageInfo) {
 
         // backtrack q3
         if (rulesNotBacktracked.isNotEmpty()) {
-            answers.q3 = true
-            for ((source, target) in rulesNotBacktracked) {
-                answers.updateMountRules {
-                    add(size - 1, source to target)
+            // 剥离 createRules 自动追加的 source == target 保护规则，避免 round-trip 后重复。
+            val manualRules = stripAutoPreserveRules(mountRules, rulesNotBacktracked)
+            if (manualRules.isNotEmpty()) {
+                answers.q3 = true
+                for ((source, target) in manualRules) {
+                    answers.updateMountRules {
+                        add(size - 1, source to target)
+                    }
                 }
             }
         }
